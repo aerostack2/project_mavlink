@@ -2,26 +2,34 @@
 
 usage() {
     echo "  options:"
-    echo "      -e: estimator_type, choices: [raw_odometry, mocap_pose, ground_truth]"
-    echo "      -r: record rosbag"
-    echo "      -t: launch keyboard teleoperation"
-    echo "      -n: drone namespace, default is drone0"
+    echo "      -n: drone namespace. Default is 'drone0'"
+    echo "      -c: motion controller plugin (pid_speed_controller, differential_flatness_controller), choices: [pid, df]. Default: pid"
+    echo "      -b: launch behavior tree"
+    echo "      -r: record rosbag. Default not launch"
+    echo "      -g: launch using gnome-terminal instead of tmux"
 }
 
+# Initialize variables with default values
+drones_namespace="drone0"
+motion_controller_plugin="pid"
+behavior_tree="false"
+rosbag="false"
+use_gnome="false"
+
 # Arg parser
-while getopts "se:rtn" opt; do
+while getopts "n:bxrg" opt; do
   case ${opt} in
-    e )
-      estimator_plugin="${OPTARG}"
+    n )
+      drones_namespace="${OPTARG}"
+      ;;
+    b )
+      behavior_tree="true"
       ;;
     r )
-      record_rosbag="true"
+      rosbag="true"
       ;;
-    t )
-      launch_keyboard_teleop="true"
-      ;;
-    n )
-      drone_namespace="${OPTARG}"
+    g )
+      use_gnome="true"
       ;;
     \? )
       echo "Invalid option: -$OPTARG" >&2
@@ -29,7 +37,7 @@ while getopts "se:rtn" opt; do
       exit 1
       ;;
     : )
-      if [[ ! $OPTARG =~ ^[swrt]$ ]]; then
+      if [[ ! $OPTARG =~ ^[wrt]$ ]]; then
         echo "Option -$OPTARG requires an argument" >&2
         usage
         exit 1
@@ -38,44 +46,48 @@ while getopts "se:rtn" opt; do
   esac
 done
 
-source utils/tools.bash
-
-# Shift optional args
-shift $((OPTIND -1))
-
-## DEFAULTS
-estimator_plugin=${estimator_plugin:="raw_odometry"}
-record_rosbag=${record_rosbag:="false"}
-launch_keyboard_teleop=${launch_keyboard_teleop:="false"}
-drone_namespace=${drone_namespace:="drone"}
-
-# Generate the list of drone namespaces
-drone_ns=()
-num_drones=1
-for ((i=0; i<${num_drones}; i++)); do
-  drone_ns+=("$drone_namespace$i")
-done
-
-for ns in "${drone_ns[@]}"
-do
-  tmuxinator start -n ${ns} -p tmuxinator/session.yml drone_namespace=${ns} estimator_plugin=${estimator_plugin} &
-  wait
-done
-
-if [[ ${estimator_plugin} == "mocap_pose" ]]; then
-  tmuxinator start -n mocap -p tmuxinator/mocap.yml &
-  wait
+# If no drone namespaces are provided, finish the execution
+if [ -z "$drones_namespace" ]; then
+  echo "No drone namespace provided. Set it using the -n option"
+  exit 1
 fi
 
-if [[ ${record_rosbag} == "true" ]]; then
-  tmuxinator start -n rosbag -p tmuxinator/rosbag.yml drone_namespace=$(list_to_string "${drone_ns[@]}") &
-  wait
+# Check if motion controller plugins are valid
+case ${motion_controller_plugin} in
+  pid )
+    motion_controller_plugin="pid_speed_controller"
+    ;;
+  df )
+    motion_controller_plugin="differential_flatness_controller"
+    ;;
+  * )
+    echo "Invalid motion controller plugin: ${motion_controller_plugin}" >&2
+    usage
+    exit 1
+    ;;
+esac
+
+# Select between tmux and gnome-terminal
+tmuxinator_mode="start"
+tmuxinator_end="wait"
+tmp_file="/tmp/as2_project_launch_${drones_namespace}.txt"
+if [[ ${use_gnome} == "true" ]]; then
+  tmuxinator_mode="debug"
+  tmuxinator_end="> ${tmp_file} && python3 utils/tmuxinator_to_genome.py -p ${tmp_file} && wait"
 fi
 
-if [[ ${launch_keyboard_teleop} == "true" ]]; then
-  tmuxinator start -n keyboard_teleop -p tmuxinator/keyboard_teleop.yml simulation=false drone_namespace=$(list_to_string "${drone_ns[@]}") &
-  wait
-fi
+# Launch aerostack2 for each drone namespace
+eval "tmuxinator ${tmuxinator_mode} -n ${drones_namespace} -p tmuxinator/aerostack2.yaml \
+    drone_namespace=${drones_namespace} \
+    motion_controller_plugin=${motion_controller_plugin} \
+    behavior_tree=${behavior_tree} \
+    rosbag=${rosbag} \
+    ${tmuxinator_end}"
 
-# Attach to tmux session ${drone_ns[@]}, window 0
-tmux attach-session -t ${drone_ns[0]}:mission
+# Attach to tmux session
+if [[ ${use_gnome} == "false" ]]; then
+  tmux attach-session -t ${drones_namespace}
+# If tmp_file exists, remove it
+elif [[ -f ${tmp_file} ]]; then
+  rm ${tmp_file}
+fi
