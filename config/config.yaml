@@ -16,8 +16,8 @@
   # State Estimator
   state_estimator:
     ros__parameters:
-      # Indoor Raw Odometry
-      plugin_name: "raw_odometry"
+      # # Indoor Raw Odometry
+      # plugin_name: "raw_odometry"
       # # Indoor RealSense
       # plugin_name: "raw_odometry"
       # odom_topic: "sensor_measurements/realsense/odom"
@@ -26,10 +26,10 @@
       # mocap_topic: "/mocap/rigid_bodies"
       # twist_smooth_filter_cte: 0.1
       # orientation_smooth_filter_cte: 0.1
-      # # Outdoor (GPS) Raw Odometry
-      # plugin_name: "raw_odometry"
-      # use_gps: true
-      # set_origin_on_start: true
+      # Outdoor (GPS) Raw Odometry
+      plugin_name: "raw_odometry"
+      use_gps: true
+      set_origin_on_start: true
 
   # Behaviors Motion
   TakeoffBehavior:
@@ -37,6 +37,7 @@
       # takeoff_plugin_name: "takeoff_plugin_speed"
       takeoff_plugin_name: "takeoff_plugin_position"
       # takeoff_plugin_name: "takeoff_plugin_trajectory"
+      takeoff_threshold: 1.0
   LandBehavior:
     ros__parameters:
       land_plugin_name: "land_plugin_speed"
@@ -45,10 +46,12 @@
     ros__parameters:
       go_to_plugin_name: "go_to_plugin_position"
       # go_to_plugin_name: "go_to_plugin_trajectory"
+      go_to_threshold: 1.0
   FollowPathBehavior:
     ros__parameters:
       follow_path_plugin_name: "follow_path_plugin_position"
       # follow_path_plugin_name: "follow_path_plugin_trajectory"
+      follow_path_threshold: 1.0
 
   # Hardware Interfaces
   usb_camera_interface:
@@ -93,3 +96,10 @@ drone2:
     ros__parameters:
       fcu_url: "udp://:14542@127.0.0.1:14559" # Autopilot address for connection
       tgt_system: 3 # Target system ID = Instance + 1
+
+drone3:
+  # Platform
+  mavros/mavros_node:
+    ros__parameters:
+      fcu_url: "udp://:14542@127.0.0.1:14560" # Autopilot address for connection
+      tgt_system: 4 # Target system ID = Instance + 1
