@@ -17,7 +17,7 @@
   state_estimator:
     ros__parameters:
       # Indoor Raw Odometry
-      plugin_name: "raw_odometry"
+      # plugin_name: "raw_odometry"
       # # Indoor RealSense
       # plugin_name: "raw_odometry"
       # odom_topic: "sensor_measurements/realsense/odom"
@@ -27,9 +27,9 @@
       # twist_smooth_filter_cte: 0.1
       # orientation_smooth_filter_cte: 0.1
       # # Outdoor (GPS) Raw Odometry
-      # plugin_name: "raw_odometry"
-      # use_gps: true
-      # set_origin_on_start: true
+      plugin_name: "raw_odometry"
+      use_gps: true
+      set_origin_on_start: true
 
   # Behaviors Motion
   TakeoffBehavior:
